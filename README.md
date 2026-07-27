@@ -44,11 +44,16 @@ npm run dev
 ## 发布验证
 
 正式 Release 只允许由 `vX.Y.Z` tag 触发。tag 必须与 `package.json`
-版本一致。Release ZIP、SHA-256 校验文件和 SPDX SBOM 均由 GitHub Actions
-从该 tag 对应的提交生成，不接受本地手工上传的构建包。下载后执行：
+版本一致。Release ZIP、SHA-256 校验文件、SPDX SBOM 和 Sigstore 签名包均由
+GitHub Actions 从该 tag 对应的提交生成，不接受本地手工上传的构建包。
+个人账户的私有仓库不支持 GitHub Artifact Attestation，因此使用 GitHub Actions
+OIDC 身份进行 Cosign 无密钥签名。下载后执行：
 
 ```bash
-gh attestation verify liangjian-v0.1.0.zip -R OWNER/REPOSITORY
+cosign verify-blob liangjian-v0.1.0.zip \
+  --bundle liangjian-v0.1.0.sigstore.json \
+  --certificate-identity "https://github.com/zoehate123-ux/liangjian-team-output/.github/workflows/release.yml@refs/tags/v0.1.0" \
+  --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
 gh release verify v0.1.0
 gh release verify-asset v0.1.0 liangjian-v0.1.0.zip
 ```

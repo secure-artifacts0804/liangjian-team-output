@@ -8,11 +8,16 @@ and Release tag must match exactly.
 ## Release integrity
 
 Release assets are built only by GitHub Actions from the tagged commit. Every
-release contains a SHA-256 checksum and an SPDX SBOM, and the main ZIP artifact
-has GitHub build provenance.
+release contains a SHA-256 checksum and an SPDX SBOM. The main ZIP artifact is
+signed keylessly with the GitHub Actions OIDC identity and recorded in Sigstore's
+transparency log. GitHub Artifact Attestation is not available for user-owned
+private repositories, so this repository uses a Cosign bundle instead.
 
 ```bash
-gh attestation verify liangjian-v0.1.0.zip -R OWNER/REPOSITORY
+cosign verify-blob liangjian-v0.1.0.zip \
+  --bundle liangjian-v0.1.0.sigstore.json \
+  --certificate-identity "https://github.com/zoehate123-ux/liangjian-team-output/.github/workflows/release.yml@refs/tags/v0.1.0" \
+  --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
 gh release verify v0.1.0
 gh release verify-asset v0.1.0 liangjian-v0.1.0.zip
 ```
