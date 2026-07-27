@@ -1,0 +1,68 @@
+name: Verified release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout immutable source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22.19.0"
+          cache: npm
+
+      - name: Verify tag matches package version
+        shell: bash
+        run: |
+          VERSION="v$(node -p "require('./package.json').version")"
+          test "$GITHUB_REF_NAME" = "$VERSION"
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Security gate
+        run: npm audit --audit-level=high
+
+      - name: Build and test
+        run: npm test
+
+      - name: Package exact build and source adapter
+        shell: bash
+        run: |
+          mkdir -p release
+          cp -R dist google-apps-script README.md release/
+          npm sbom --sbom-format spdx > release/SBOM.spdx.json
+          zip -r "liangjian-${GITHUB_REF_NAME}.zip" release
+          sha256sum "liangjian-${GITHUB_REF_NAME}.zip" > SHA256SUMS
+
+      - name: Generate cryptographic build provenance
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        with:
+          subject-path: "liangjian-${{ github.ref_name }}.zip"
+
+      - name: Publish immutable release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "liangjian-${GITHUB_REF_NAME}.zip" \
+            SHA256SUMS \
+            release/SBOM.spdx.json \
+            --verify-tag \
+            --generate-notes \
+            --title "量见 ${GITHUB_REF_NAME}"
