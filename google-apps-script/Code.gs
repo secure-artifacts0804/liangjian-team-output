@@ -26,6 +26,11 @@ function doPost(event) {
       return json_({ ok: false, error: "链接目标不是文件夹" });
     }
 
+    var requestedLimits = body.limits || {};
+    var limits = {
+      maxDepth: Math.min(12, Math.max(1, Number(requestedLimits.maxDepth) || 12)),
+      maxItems: Math.min(10000, Math.max(100, Number(requestedLimits.maxItems) || 10000))
+    };
     var result = {
       images: 0,
       videos: 0,
@@ -34,9 +39,17 @@ function doPost(event) {
       videoDurationSeconds: 0,
       videoDurationUnavailable: 0,
       videoDetails: [],
-      videoDetailsTruncated: false
+      videoDetailsTruncated: false,
+      scannedItems: 0,
+      limitReached: false
     };
-    scanFolder_(folder.id, folder.name, false, result);
+    scanFolder_(folder.id, folder.name, false, result, 0, limits);
+    if (result.limitReached) {
+      return json_({
+        ok: false,
+        error: "文件夹层级或文件数量超过安全上限，请拆分后再检测"
+      });
+    }
 
     return json_({
       ok: true,
@@ -63,7 +76,11 @@ function extractFolderId_(url) {
   return match ? match[1] : "";
 }
 
-function scanFolder_(folderId, folderName, insideSelected, result) {
+function scanFolder_(folderId, folderName, insideSelected, result, depth, limits) {
+  if (depth > limits.maxDepth || result.limitReached) {
+    result.limitReached = true;
+    return;
+  }
   var folderMatches = isSelectedFolderName_(folderName);
   var selectedHere = insideSelected || folderMatches;
   if (folderMatches) result.selectedFolders += 1;
@@ -81,8 +98,21 @@ function scanFolder_(folderId, folderName, insideSelected, result) {
     var files = response.files || [];
 
     files.forEach(function(file) {
+      if (result.limitReached) return;
+      result.scannedItems += 1;
+      if (result.scannedItems > limits.maxItems) {
+        result.limitReached = true;
+        return;
+      }
       if (file.mimeType === "application/vnd.google-apps.folder") {
-        scanFolder_(file.id, file.name, selectedHere, result);
+        scanFolder_(
+          file.id,
+          file.name,
+          selectedHere,
+          result,
+          depth + 1,
+          limits
+        );
         return;
       }
 
@@ -118,7 +148,7 @@ function scanFolder_(folderId, folderName, insideSelected, result) {
       }
     });
     pageToken = response.nextPageToken;
-  } while (pageToken);
+  } while (pageToken && !result.limitReached);
 }
 
 function isSelectedFolderName_(name) {
