@@ -33,9 +33,7 @@
     "wrangler": "4.114.0"
   },
   "overrides": {
-    "next": {
-      "postcss": "8.5.18"
-    }
+    "postcss": "8.5.18"
   },
   "type": "module"
 }
