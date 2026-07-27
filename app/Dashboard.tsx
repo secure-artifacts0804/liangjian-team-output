@@ -411,6 +411,9 @@ export default function Dashboard() {
   const [dailyQuotaDraft, setDailyQuotaDraft] = useState<Category[]>([]);
   const [toast, setToast] = useState("");
   const [authConfig, setAuthConfig] = useState<AuthConfig | null>(null);
+  const [serverAuthInitialized, setServerAuthInitialized] = useState<
+    boolean | null
+  >(null);
   const [accessSession, setAccessSession] = useState<AccessSession | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [loginMode, setLoginMode] = useState<"staff" | "admin">("staff");
@@ -524,6 +527,62 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!authReady) return;
+    let cancelled = false;
+    async function initializeServerAuth() {
+      try {
+        const statusResponse = await fetch("/api/auth/status", {
+          cache: "no-store",
+        });
+        const status = (await statusResponse.json()) as {
+          initialized?: boolean;
+          error?: string;
+        };
+        if (!statusResponse.ok) throw new Error(status.error || "安全服务不可用");
+        if (status.initialized || !authConfig) {
+          if (!cancelled) setServerAuthInitialized(Boolean(status.initialized));
+          return;
+        }
+        const migrateResponse = await fetch("/api/auth/bootstrap", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(authConfig),
+        });
+        const migrated = (await migrateResponse.json()) as {
+          initialized?: boolean;
+          error?: string;
+        };
+        if (!migrateResponse.ok) {
+          throw new Error(migrated.error || "旧密码配置迁移失败");
+        }
+        if (!cancelled) setServerAuthInitialized(true);
+      } catch (error) {
+        if (!cancelled) {
+          setAuthMessage(
+            error instanceof Error ? error.message : "安全服务暂时不可用",
+          );
+          setServerAuthInitialized(false);
+        }
+      }
+    }
+    void initializeServerAuth();
+    return () => {
+      cancelled = true;
+    };
+  }, [authReady]);
+
+  useEffect(() => {
+    if (!authReady || !accessSession || !serverAuthInitialized) return;
+    let cancelled = false;
+    fetch("/api/auth/me", { cache: "no-store" }).then((response) => {
+      if (!cancelled && !response.ok) setAccessSession(null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [authReady, serverAuthInitialized]);
+
+  useEffect(() => {
+    if (!authReady) return;
     if (accessSession) {
       window.sessionStorage.setItem(
         "quota.session",
@@ -599,7 +658,27 @@ export default function Dashboard() {
         createSecretHash(staffPassword),
         createSecretHash(adminPassword),
       ]);
-      setAuthConfig({ version: 1, staff, admin, leaderPins: {} });
+      const nextConfig: AuthConfig = {
+        version: 1,
+        staff,
+        admin,
+        leaderPins: {},
+      };
+      const response = await fetch("/api/auth/bootstrap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(nextConfig),
+      });
+      const result = (await response.json()) as {
+        initialized?: boolean;
+        error?: string;
+      };
+      if (!response.ok) {
+        setAuthMessage(result.error || "密码设置未能保存，请稍后重试");
+        return;
+      }
+      setAuthConfig(nextConfig);
+      setServerAuthInitialized(true);
       setLoginMode("admin");
       setAuthMessage("设置完成，请使用管理员密码进入并指定组长");
     } finally {
@@ -609,7 +688,6 @@ export default function Dashboard() {
 
   async function loginStaff(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!authConfig) return;
     const form = new FormData(event.currentTarget);
     const personId = String(form.get("personId") ?? "");
     const password = String(form.get("password") ?? "");
@@ -624,18 +702,25 @@ export default function Dashboard() {
     setAuthBusy(true);
     setAuthMessage("");
     try {
-      if (!(await verifySecret(password, authConfig.staff))) {
-        setAuthMessage("共用密码不正确");
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "staff",
+          personId: person.id,
+          password,
+          leaderPin,
+        }),
+      });
+      const result = (await response.json()) as {
+        role?: AccessSession["kind"];
+        error?: string;
+      };
+      if (!response.ok) {
+        setAuthMessage(result.error || "登录失败，请稍后重试");
         return;
       }
-      if (leaderPin) {
-        if (
-          !person.isLeader ||
-          !(await verifySecret(leaderPin, authConfig.leaderPins[person.id]))
-        ) {
-          setAuthMessage("组长 PIN 不正确");
-          return;
-        }
+      if (result.role === "leader") {
         setAccessSession({ kind: "leader", personId: person.id });
         setSelectedTeam("all");
       } else {
@@ -648,14 +733,19 @@ export default function Dashboard() {
 
   async function loginAdmin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!authConfig) return;
     const form = new FormData(event.currentTarget);
     const password = String(form.get("password") ?? "");
     setAuthBusy(true);
     setAuthMessage("");
     try {
-      if (!(await verifySecret(password, authConfig.admin))) {
-        setAuthMessage("管理员密码不正确");
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "admin", password }),
+      });
+      const result = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        setAuthMessage(result.error || "管理员登录失败");
         return;
       }
       setAccessSession({ kind: "admin" });
@@ -665,13 +755,13 @@ export default function Dashboard() {
   }
 
   function logout() {
+    void fetch("/api/auth/logout", { method: "POST" });
     setAccessSession(null);
     setAuthMessage("");
     setPanel("people");
   }
 
   async function makeLeader(person: Person) {
-    if (!authConfig) return;
     const pin = leaderPinDrafts[person.id] ?? "";
     if (pin.length < 4) {
       setAuthMessage("组长 PIN 至少需要4位");
@@ -681,10 +771,22 @@ export default function Dashboard() {
     setAuthMessage("");
     try {
       const secret = await createSecretHash(pin);
-      setAuthConfig({
-        ...authConfig,
-        leaderPins: { ...authConfig.leaderPins, [person.id]: secret },
+      const response = await fetch("/api/auth/leader", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ personId: person.id, secret }),
       });
+      const result = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        setAuthMessage(result.error || "组长权限保存失败");
+        return;
+      }
+      if (authConfig) {
+        setAuthConfig({
+          ...authConfig,
+          leaderPins: { ...authConfig.leaderPins, [person.id]: secret },
+        });
+      }
       setPeople((current) =>
         current.map((item) =>
           item.id === person.id ? { ...item, isLeader: true } : item,
@@ -697,17 +799,34 @@ export default function Dashboard() {
     }
   }
 
-  function removeLeader(person: Person) {
-    if (!authConfig) return;
-    const nextPins = { ...authConfig.leaderPins };
-    delete nextPins[person.id];
-    setAuthConfig({ ...authConfig, leaderPins: nextPins });
-    setPeople((current) =>
-      current.map((item) =>
-        item.id === person.id ? { ...item, isLeader: false } : item,
-      ),
-    );
-    setToast(`已取消${person.name}的组长权限`);
+  async function removeLeader(person: Person) {
+    setAuthBusy(true);
+    setAuthMessage("");
+    try {
+      const response = await fetch("/api/auth/leader", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ personId: person.id, remove: true }),
+      });
+      const result = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        setAuthMessage(result.error || "取消组长权限失败");
+        return;
+      }
+      if (authConfig) {
+        const nextPins = { ...authConfig.leaderPins };
+        delete nextPins[person.id];
+        setAuthConfig({ ...authConfig, leaderPins: nextPins });
+      }
+      setPeople((current) =>
+        current.map((item) =>
+          item.id === person.id ? { ...item, isLeader: false } : item,
+        ),
+      );
+      setToast(`已取消${person.name}的组长权限`);
+    } finally {
+      setAuthBusy(false);
+    }
   }
 
   function valueFor(personId: string, date: string, slot: Slot) {
@@ -1230,7 +1349,7 @@ export default function Dashboard() {
     }
   }
 
-  if (!authReady) {
+  if (!authReady || serverAuthInitialized === null) {
     return (
       <div className="auth-screen">
         <div className="auth-loading">正在打开团队产量台…</div>
@@ -1238,7 +1357,7 @@ export default function Dashboard() {
     );
   }
 
-  if (!authConfig) {
+  if (!serverAuthInitialized) {
     return (
       <div className="auth-screen">
         <section className="auth-card setup-card">
