@@ -59,10 +59,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          gh release create "$GITHUB_REF_NAME" \
-            "liangjian-${GITHUB_REF_NAME}.zip" \
-            SHA256SUMS \
-            release/SBOM.spdx.json \
-            --verify-tag \
-            --generate-notes \
-            --title "量见 ${GITHUB_REF_NAME}"
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" \
+              "liangjian-${GITHUB_REF_NAME}.zip" \
+              SHA256SUMS \
+              release/SBOM.spdx.json \
+              --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              "liangjian-${GITHUB_REF_NAME}.zip" \
+              SHA256SUMS \
+              release/SBOM.spdx.json \
+              --verify-tag \
+              --generate-notes \
+              --title "量见 ${GITHUB_REF_NAME}"
+          fi
