@@ -13,13 +13,13 @@ signed keylessly with the GitHub Actions OIDC identity and recorded in Sigstore'
 transparency log. GitHub Artifact Attestation is not available for user-owned
 private repositories, so this repository uses a Cosign bundle instead.
 
-```bash
-cosign verify-blob liangjian-v0.1.0.zip \
-  --bundle liangjian-v0.1.0.sigstore.json \
-  --certificate-identity "https://github.com/zoehate123-ux/liangjian-team-output/.github/workflows/release.yml@refs/tags/v0.1.0" \
+```powershell
+cosign verify-blob LiangJian-v0.1.1-windows-x64.zip `
+  --bundle LiangJian-v0.1.1-windows-x64.sigstore.json `
+  --certificate-identity "https://github.com/zoehate123-ux/liangjian-team-output/.github/workflows/release.yml@refs/tags/v0.1.1" `
   --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
-gh release verify v0.1.0
-gh release verify-asset v0.1.0 liangjian-v0.1.0.zip
+gh release verify v0.1.1
+gh release verify-asset v0.1.1 LiangJian-v0.1.1-windows-x64.zip
 ```
 
 ## Data minimisation

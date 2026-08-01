@@ -1,72 +1,57 @@
 # 量见 · 团队产量台
 
-第一版业务范围固定为三个面板，管理员额外拥有权限设置面板：
+量见是一个面向制作团队的产量管理工具。第一版固定包含：
 
-1. 人员面板：人员、月定量、今日完成、分类定量和进度。
-2. 报数打卡：人员纵向排列，日期从左向右递减，每天中午、下午、晚上三次报数。
-3. 实际产量：逐个检测 Google Drive 文件夹及子文件夹，识别「已选用」并计算合格率。
-4. 权限设置（仅管理员）：指定或取消组长，并设置组长 PIN。
+1. 人员面板：人员、组别、月定量、当日完成量、分类定量和进度。
+2. 报数打卡：人员纵向排列，日期从左向右递减，每天记录中午、下午、晚上三次报数。
+3. 实际产量：扫描 Google Drive 文件夹及子文件夹，识别图片、视频、视频时长和“已选用”目录，计算实际完成量及合格率。
+4. 权限设置：管理员指定或取消组长；员工仅查看和提交自己的数据，组长可查看所有人员并调整定额。
 
-普通员工登录后选择自己的姓名，只查看和提交自己的数据；组长可以查看所有
-人员并调整定额；管理员拥有组长的全部功能，并额外管理组长权限。
+每个制作类型可以独立设置计数规则：按文件数计数，或按每 N 秒视频时长折算一个完成量（四舍五入）。
 
-每个制作类型可以独立设置计数规则：按文件数量计数，或按每 N 秒视频时长
-折算 1 个完成量（四舍五入）。检测链接时必须选择人员和制作类型，系统同时
-保留原始图片/视频数量与折算完成量，并按各类型自己的当日定额判断达标。
+## Windows 软件
 
-## 本地运行
+从 GitHub Releases 下载 `LiangJian-v0.1.1-windows-x64.zip`，解压后双击 `LiangJian.exe`。这是无需安装的 Windows 64 位桌面软件，后续可以直接删除整个文件夹卸载。桌面客户端连接正式云端系统，因此需要网络；数据和 Drive 扫描不会保存在软件包内。
+
+此测试版尚未购买 Windows Authenticode 代码签名证书，Windows 第一次运行时可能显示“未知发布者”。请只从本仓库 Release 下载，并按下方步骤核验文件。
+
+## 本地开发
 
 ```bash
 npm ci --ignore-scripts
 npm run dev
 ```
 
-界面数据保存在当前浏览器中。真实 Drive 扫描通过服务端
-`DRIVE_SCANNER_URL` 调用 `google-apps-script/` 中的只读扫描器。
+桌面客户端：
+
+```bash
+npm --prefix desktop ci
+npm --prefix desktop run start
+```
 
 ## Google Drive 扫描器
 
 1. 用固定统计账号创建 Apps Script 项目。
-2. 将 `google-apps-script/Code.gs` 与 `appsscript.json` 放入项目；清单会启用只读的
-   Drive v3 高级服务，用于读取视频时长元数据。
-3. 部署为 Web App，设置为由统计账号执行。
-4. 在 Apps Script 的脚本属性中添加 `SCANNER_SECRET`，值为独立生成的长随机
-   密钥；同一值保存为应用环境中的 `DRIVE_SCANNER_SECRET`。
-5. 将生成的 `/exec` 地址保存为部署环境中的 `DRIVE_SCANNER_URL`。
-6. 每个待统计文件夹需共享给统计账号，权限为查看者。
+2. 将 `google-apps-script/Code.gs` 和 `appsscript.json` 放入项目。
+3. 部署为 Web App，并设置为由统计账号执行。
+4. 在 Apps Script 脚本属性中设置独立的长随机值 `SCANNER_SECRET`。
+5. 将相同值保存在应用环境变量 `DRIVE_SCANNER_SECRET`，并把 `/exec` 地址保存为 `DRIVE_SCANNER_URL`。
+6. 将待统计文件夹以“查看者”权限共享给统计账号。
 
-统计账号只申请 `drive.readonly` 权限。扫描器递归读取文件元数据，只统计
-图片、视频、视频时长和选用目录中的数量。选用目录支持多个，并兼容
-「已选用」「已经选用」「选用」及带空格、横线或常见素材后缀的写法；
-「待选用」不会被误判。Google Drive 对刚上传的视频可能暂时不提供时长，
-界面会标记为处理中，稍后重新检测即可。
+扫描器只申请 `drive.readonly`，仅读取文件元数据，不下载、复制、编辑或删除媒体。多个“已选用”“已经选用”“选用”等目录均可识别；“待选用”不会被误判。
 
-## 发布验证
+## 发布与验证
 
-正式 Release 只允许由 `vX.Y.Z` tag 触发。tag 必须与 `package.json`
-版本一致。Release ZIP、SHA-256 校验文件、SPDX SBOM 和 Sigstore 签名包均由
-GitHub Actions 从该 tag 对应的提交生成，不接受本地手工上传的构建包。
-个人账户的私有仓库不支持 GitHub Artifact Attestation，因此使用 GitHub Actions
-OIDC 身份进行 Cosign 无密钥签名。下载后执行：
+正式 Release 只能由 `vX.Y.Z` tag 触发，tag、根项目版本和桌面客户端版本必须完全一致。GitHub Actions 会运行测试和高危漏洞门禁，然后生成 Windows 安装包、源码适配包、SHA-256 校验文件、两份 SPDX SBOM 和 Sigstore 签名包。
 
-```bash
-cosign verify-blob liangjian-v0.1.0.zip \
-  --bundle liangjian-v0.1.0.sigstore.json \
-  --certificate-identity "https://github.com/zoehate123-ux/liangjian-team-output/.github/workflows/release.yml@refs/tags/v0.1.0" \
+```powershell
+gh release verify v0.1.1
+gh release verify-asset v0.1.1 LiangJian-v0.1.1-windows-x64.zip
+
+cosign verify-blob LiangJian-v0.1.1-windows-x64.zip `
+  --bundle LiangJian-v0.1.1-windows-x64.sigstore.json `
+  --certificate-identity "https://github.com/zoehate123-ux/liangjian-team-output/.github/workflows/release.yml@refs/tags/v0.1.1" `
   --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
-gh release verify v0.1.0
-gh release verify-asset v0.1.0 liangjian-v0.1.0.zip
 ```
 
 详见 `SECURITY.md`。
-
-## 第一轮测试
-
-1. 首次打开时设置全员共用密码和管理员密码。
-2. 管理员进入完整工作台，在「权限设置」中指定组长并设置 PIN。
-3. 分别测试普通员工、组长和管理员看到的面板及可执行操作。
-4. 测试新增人员、临时调整定额、三时段报数和表格导出。
-5. 测试重复 Drive 链接、子文件夹、多个「已选用」目录及视频时长折算。
-
-当前业务数据和角色设置仍保存在浏览器中，清除浏览器数据会重置测试数据。
-多台电脑共享同一份数据将在云端数据库阶段完成。
