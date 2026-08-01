@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'unsafe-inline';"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>量见 · 无法连接</title>
+    <style>
+      :root {
+        color: #4c352d;
+        background: #fff8ee;
+        font-family: "Microsoft YaHei UI", system-ui, sans-serif;
+      }
+      body {
+        display: grid;
+        min-height: 100vh;
+        margin: 0;
+        place-items: center;
+        background:
+          radial-gradient(circle at 18% 16%, #ffdca4b3, transparent 28%),
+          radial-gradient(circle at 84% 82%, #f2ab8e70, transparent 30%);
+      }
+      main {
+        width: min(440px, calc(100% - 48px));
+        padding: 38px;
+        border: 1px solid #eedfd2;
+        border-radius: 26px;
+        background: #fffdf9;
+        box-shadow: 0 28px 80px #89573f24;
+        text-align: center;
+      }
+      .mark {
+        display: grid;
+        width: 58px;
+        height: 58px;
+        margin: 0 auto 22px;
+        place-items: center;
+        border-radius: 50% 50% 50% 18px;
+        background: linear-gradient(145deg, #e88b67, #f1ad72);
+        color: white;
+        font-size: 24px;
+        font-weight: 800;
+      }
+      h1 {
+        margin: 0 0 12px;
+        font-size: 24px;
+      }
+      p {
+        margin: 0;
+        color: #8a7065;
+        line-height: 1.8;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="mark">量</div>
+      <h1>暂时无法连接产量台</h1>
+      <p>请检查网络连接后关闭并重新打开“量见”。你的本地数据不会因此被删除。</p>
+    </main>
+  </body>
+</html>

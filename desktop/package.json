@@ -1,0 +1,21 @@
+{
+  "name": "liangjian",
+  "productName": "量见",
+  "version": "0.1.1",
+  "description": "量见团队产量台 Windows 桌面客户端",
+  "author": "zoehate123-ux",
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "make": "node build.cjs",
+    "test": "node --test test.mjs"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@electron/asar": "4.2.1",
+    "@electron/fuses": "1.8.0",
+    "electron": "43.2.0"
+  }
+}
