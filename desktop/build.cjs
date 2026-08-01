@@ -12,10 +12,12 @@ const { createPackage } = require("@electron/asar");
 const {
   flipFuses,
   getCurrentFuseWire,
-  FuseState,
   FuseV1Options,
   FuseVersion,
 } = require("@electron/fuses");
+
+const FUSE_DISABLED = "0".charCodeAt(0);
+const FUSE_ENABLED = "1".charCodeAt(0);
 
 const desktopRoot = __dirname;
 const packageJson = require("./package.json");
@@ -74,14 +76,14 @@ async function build() {
 
   const fuseWire = await getCurrentFuseWire(executablePath);
   const expectedFuses = new Map([
-    [FuseV1Options.RunAsNode, FuseState.DISABLE],
-    [FuseV1Options.EnableCookieEncryption, FuseState.ENABLE],
-    [FuseV1Options.EnableNodeOptionsEnvironmentVariable, FuseState.DISABLE],
-    [FuseV1Options.EnableNodeCliInspectArguments, FuseState.DISABLE],
-    [FuseV1Options.EnableEmbeddedAsarIntegrityValidation, FuseState.ENABLE],
-    [FuseV1Options.OnlyLoadAppFromAsar, FuseState.ENABLE],
-    [FuseV1Options.LoadBrowserProcessSpecificV8Snapshot, FuseState.ENABLE],
-    [FuseV1Options.GrantFileProtocolExtraPrivileges, FuseState.DISABLE],
+    [FuseV1Options.RunAsNode, FUSE_DISABLED],
+    [FuseV1Options.EnableCookieEncryption, FUSE_ENABLED],
+    [FuseV1Options.EnableNodeOptionsEnvironmentVariable, FUSE_DISABLED],
+    [FuseV1Options.EnableNodeCliInspectArguments, FUSE_DISABLED],
+    [FuseV1Options.EnableEmbeddedAsarIntegrityValidation, FUSE_ENABLED],
+    [FuseV1Options.OnlyLoadAppFromAsar, FUSE_ENABLED],
+    [FuseV1Options.LoadBrowserProcessSpecificV8Snapshot, FUSE_ENABLED],
+    [FuseV1Options.GrantFileProtocolExtraPrivileges, FUSE_DISABLED],
   ]);
   for (const [option, expected] of expectedFuses) {
     if (fuseWire[option] !== expected) {
