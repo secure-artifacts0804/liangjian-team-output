@@ -11,7 +11,7 @@
 
 ## Windows 软件
 
-从 GitHub Releases 下载 `LiangJian-v0.1.1-windows-x64.zip`，解压后双击 `LiangJian.exe`。这是无需安装的 Windows 64 位桌面软件，后续可以直接删除整个文件夹卸载。桌面客户端连接正式云端系统，因此需要网络；数据和 Drive 扫描不会保存在软件包内。
+从 GitHub Releases 下载 `LiangJian-v0.1.2-windows-x64.zip`，解压后双击 `LiangJian.exe`。这是无需安装的 Windows 64 位桌面软件，后续可以直接删除整个文件夹卸载。桌面客户端连接正式云端系统，因此需要网络；数据和 Drive 扫描不会保存在软件包内。
 
 此测试版尚未购买 Windows Authenticode 代码签名证书，Windows 第一次运行时可能显示“未知发布者”。请只从本仓库 Release 下载，并按下方步骤核验文件。
 
@@ -45,12 +45,12 @@ npm --prefix desktop run start
 正式 Release 只能由 `vX.Y.Z` tag 触发，tag、根项目版本和桌面客户端版本必须完全一致。GitHub Actions 会运行测试和高危漏洞门禁，然后生成 Windows 安装包、源码适配包、SHA-256 校验文件、两份 SPDX SBOM 和 Sigstore 签名包。
 
 ```powershell
-gh release verify v0.1.1
-gh release verify-asset v0.1.1 LiangJian-v0.1.1-windows-x64.zip
+gh release verify v0.1.2
+gh release verify-asset v0.1.2 LiangJian-v0.1.2-windows-x64.zip
 
-cosign verify-blob LiangJian-v0.1.1-windows-x64.zip `
-  --bundle LiangJian-v0.1.1-windows-x64.sigstore.json `
-  --certificate-identity "https://github.com/zoehate123-ux/liangjian-team-output/.github/workflows/release.yml@refs/tags/v0.1.1" `
+cosign verify-blob LiangJian-v0.1.2-windows-x64.zip `
+  --bundle LiangJian-v0.1.2-windows-x64.sigstore.json `
+  --certificate-identity "https://github.com/zoehate123-ux/liangjian-team-output/.github/workflows/release.yml@refs/tags/v0.1.2" `
   --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
 ```
 
