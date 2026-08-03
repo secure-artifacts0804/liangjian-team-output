@@ -36,6 +36,10 @@ test("packaging enables ASAR and hardened Electron fuses", () => {
   return readFile(new URL("./build.cjs", import.meta.url), "utf8").then(
     (builder) => {
       assert.match(builder, /createPackage\(sourceRoot, archivePath\)/);
+      assert.match(builder, /getRawHeader\(asarPath\)\.headerString/);
+      assert.match(builder, /type: "INTEGRITY"/);
+      assert.match(builder, /id: "ELECTRONASAR"/);
+      assert.match(builder, /verifyAsarIntegrityResource/);
       assert.match(builder, /RunAsNode\]: false/);
       assert.match(builder, /EnableCookieEncryption\]: true/);
       assert.match(builder, /EnableNodeOptionsEnvironmentVariable\]: false/);
