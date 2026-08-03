@@ -159,13 +159,14 @@ async function build() {
   const asarHeaderHash = editWindowsResources(executablePath, archivePath);
   await flipFuses(executablePath, {
     version: FuseVersion.V1,
+    strictlyRequireAllFuses: true,
     [FuseV1Options.RunAsNode]: false,
     [FuseV1Options.EnableCookieEncryption]: true,
     [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
     [FuseV1Options.EnableNodeCliInspectArguments]: false,
     [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
     [FuseV1Options.OnlyLoadAppFromAsar]: true,
-    [FuseV1Options.LoadBrowserProcessSpecificV8Snapshot]: true,
+    [FuseV1Options.LoadBrowserProcessSpecificV8Snapshot]: false,
     [FuseV1Options.GrantFileProtocolExtraPrivileges]: false,
   });
 
@@ -177,7 +178,7 @@ async function build() {
     [FuseV1Options.EnableNodeCliInspectArguments, FUSE_DISABLED],
     [FuseV1Options.EnableEmbeddedAsarIntegrityValidation, FUSE_ENABLED],
     [FuseV1Options.OnlyLoadAppFromAsar, FUSE_ENABLED],
-    [FuseV1Options.LoadBrowserProcessSpecificV8Snapshot, FUSE_ENABLED],
+    [FuseV1Options.LoadBrowserProcessSpecificV8Snapshot, FUSE_DISABLED],
     [FuseV1Options.GrantFileProtocolExtraPrivileges, FUSE_DISABLED],
   ]);
   for (const [option, expected] of expectedFuses) {

@@ -32,6 +32,11 @@ test("packaged app uses the fixed HTTPS production endpoint", () => {
   assert.match(main, /url\.protocol !== "https:"/);
 });
 
+test("packaged app exposes a CI-only startup smoke test", () => {
+  assert.match(main, /LIANGJIAN_SMOKE_TEST === "1"/);
+  assert.match(main, /app\.exit\(0\)/);
+});
+
 test("packaging enables ASAR and hardened Electron fuses", () => {
   return readFile(new URL("./build.cjs", import.meta.url), "utf8").then(
     (builder) => {
@@ -46,6 +51,8 @@ test("packaging enables ASAR and hardened Electron fuses", () => {
       assert.match(builder, /EnableNodeCliInspectArguments\]: false/);
       assert.match(builder, /EnableEmbeddedAsarIntegrityValidation\]: true/);
       assert.match(builder, /OnlyLoadAppFromAsar\]: true/);
+      assert.match(builder, /strictlyRequireAllFuses: true/);
+      assert.match(builder, /LoadBrowserProcessSpecificV8Snapshot\]: false/);
       assert.match(builder, /GrantFileProtocolExtraPrivileges\]: false/);
     },
   );

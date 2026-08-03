@@ -68,7 +68,13 @@ function createWindow() {
     },
   });
 
-  window.once("ready-to-show", () => window.show());
+  window.once("ready-to-show", () => {
+    if (process.env.LIANGJIAN_SMOKE_TEST === "1") {
+      app.exit(0);
+      return;
+    }
+    window.show();
+  });
 
   window.webContents.setWindowOpenHandler(({ url }) => {
     if (isTrustedNavigation(url)) {
