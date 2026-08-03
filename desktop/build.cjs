@@ -168,6 +168,7 @@ async function build() {
     [FuseV1Options.OnlyLoadAppFromAsar]: true,
     [FuseV1Options.LoadBrowserProcessSpecificV8Snapshot]: false,
     [FuseV1Options.GrantFileProtocolExtraPrivileges]: false,
+    [FuseV1Options.WasmTrapHandlers]: true,
   });
 
   const fuseWire = await getCurrentFuseWire(executablePath);
@@ -180,6 +181,7 @@ async function build() {
     [FuseV1Options.OnlyLoadAppFromAsar, FUSE_ENABLED],
     [FuseV1Options.LoadBrowserProcessSpecificV8Snapshot, FUSE_DISABLED],
     [FuseV1Options.GrantFileProtocolExtraPrivileges, FUSE_DISABLED],
+    [FuseV1Options.WasmTrapHandlers, FUSE_ENABLED],
   ]);
   for (const [option, expected] of expectedFuses) {
     if (fuseWire[option] !== expected) {

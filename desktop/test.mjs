@@ -54,6 +54,7 @@ test("packaging enables ASAR and hardened Electron fuses", () => {
       assert.match(builder, /strictlyRequireAllFuses: true/);
       assert.match(builder, /LoadBrowserProcessSpecificV8Snapshot\]: false/);
       assert.match(builder, /GrantFileProtocolExtraPrivileges\]: false/);
+      assert.match(builder, /WasmTrapHandlers\]: true/);
     },
   );
 });
