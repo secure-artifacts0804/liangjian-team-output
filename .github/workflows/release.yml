@@ -57,6 +57,29 @@ jobs:
       - name: Build Windows desktop software
         run: npm --prefix desktop run make
 
+      - name: Verify packaged desktop starts
+        shell: pwsh
+        run: |
+          $appDir = Resolve-Path "desktop/out/LiangJian-win32-x64"
+          $exe = Join-Path $appDir "LiangJian.exe"
+          $debugLog = Join-Path $appDir "debug.log"
+          Remove-Item $debugLog -Force -ErrorAction SilentlyContinue
+
+          $env:LIANGJIAN_SMOKE_TEST = "1"
+          $process = Start-Process `
+            -FilePath $exe `
+            -WorkingDirectory $appDir `
+            -PassThru
+          if (-not $process.WaitForExit(45000)) {
+            Get-Process LiangJian -ErrorAction SilentlyContinue |
+              Stop-Process -Force
+            throw "Packaged desktop did not reach ready-to-show within 45 seconds"
+          }
+          if ($process.ExitCode -ne 0) {
+            if (Test-Path $debugLog) { Get-Content $debugLog }
+            throw "Packaged desktop exited with code $($process.ExitCode)"
+          }
+
       - name: Package exact build and source adapter
         shell: pwsh
         run: |
