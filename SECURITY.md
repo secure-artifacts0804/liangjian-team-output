@@ -14,12 +14,12 @@ transparency log. GitHub Artifact Attestation is not available for user-owned
 private repositories, so this repository uses a Cosign bundle instead.
 
 ```powershell
-cosign verify-blob LiangJian-v0.1.5-windows-x64.zip `
-  --bundle LiangJian-v0.1.5-windows-x64.sigstore.json `
-  --certificate-identity "https://github.com/zoehate123-ux/liangjian-team-output/.github/workflows/release.yml@refs/tags/v0.1.5" `
+cosign verify-blob LiangJian-v0.1.6-windows-x64.zip `
+  --bundle LiangJian-v0.1.6-windows-x64.sigstore.json `
+  --certificate-identity "https://github.com/zoehate123-ux/liangjian-team-output/.github/workflows/release.yml@refs/tags/v0.1.6" `
   --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
-gh release verify v0.1.5
-gh release verify-asset v0.1.5 LiangJian-v0.1.5-windows-x64.zip
+gh release verify v0.1.6
+gh release verify-asset v0.1.6 LiangJian-v0.1.6-windows-x64.zip
 ```
 
 ## Data minimisation
