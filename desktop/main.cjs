@@ -2,31 +2,30 @@ const path = require("node:path");
 const { app, BrowserWindow, session, shell } = require("electron");
 
 const PRODUCTION_URL =
-  "https://liangjian-team-output.workspace-538344.chatgpt.site";
+  "https://liangjian-team-output.lumiimage.workers.dev";
 const DEVELOPMENT_URL =
   !app.isPackaged && process.env.LIANGJIAN_APP_URL
     ? process.env.LIANGJIAN_APP_URL
     : PRODUCTION_URL;
 const APP_USER_MODEL_ID = "com.squirrel.liangjian.LiangJian";
 
+// Some employee PCs and virtualized Windows environments cannot initialize
+// Chromium's GPU subprocess reliably. The dashboard does not need hardware
+// acceleration, so keep rendering on the stable software path.
+app.disableHardwareAcceleration();
+
 function isTrustedNavigation(rawUrl) {
   try {
     const url = new URL(rawUrl);
-    if (!app.isPackaged && url.origin === new URL(DEVELOPMENT_URL).origin) {
+    if (url.origin === new URL(DEVELOPMENT_URL).origin) {
       return true;
     }
     if (url.protocol !== "https:") return false;
     const hostname = url.hostname.toLowerCase();
     return [
-      "chatgpt.site",
-      "chatgpt.com",
-      "openai.com",
       "google.com",
       "gstatic.com",
       "googleusercontent.com",
-      "microsoftonline.com",
-      "live.com",
-      "apple.com",
     ].some(
       (domain) => hostname === domain || hostname.endsWith(`.${domain}`),
     );

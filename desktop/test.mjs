@@ -21,14 +21,16 @@ test("remote content is isolated from Electron privileges", () => {
   assert.match(main, /webSecurity:\s*true/);
   assert.match(main, /setPermissionRequestHandler/);
   assert.match(main, /setWindowOpenHandler/);
+  assert.match(main, /app\.disableHardwareAcceleration\(\)/);
   assert.doesNotMatch(main, /preload\s*:/);
 });
 
 test("packaged app uses the fixed HTTPS production endpoint", () => {
   assert.match(
     main,
-    /https:\/\/liangjian-team-output\.workspace-538344\.chatgpt\.site/,
+    /https:\/\/liangjian-team-output\.lumiimage\.workers\.dev/,
   );
+  assert.doesNotMatch(main, /chatgpt\.site|chatgpt\.com|openai\.com/);
   assert.match(main, /url\.protocol !== "https:"/);
 });
 

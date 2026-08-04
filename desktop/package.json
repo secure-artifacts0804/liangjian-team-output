@@ -1,7 +1,7 @@
 {
   "name": "liangjian",
   "productName": "量见",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "量见团队产量台 Windows 桌面客户端",
   "author": "zoehate123-ux",
   "license": "UNLICENSED",
@@ -18,5 +18,8 @@
     "@electron/fuses": "2.1.2",
     "electron": "43.2.0",
     "resedit": "3.0.2"
+  },
+  "overrides": {
+    "brace-expansion": "5.0.9"
   }
 }
