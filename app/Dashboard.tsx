@@ -283,7 +283,7 @@ async function hashSecret(secret: string, salt: string) {
       name: "PBKDF2",
       hash: "SHA-256",
       salt: new TextEncoder().encode(salt),
-      iterations: 120_000,
+      iterations: salt.startsWith("v2:") ? 100_000 : 120_000,
     },
     key,
     256,
@@ -294,8 +294,56 @@ async function hashSecret(secret: string, salt: string) {
 }
 
 async function createSecretHash(secret: string): Promise<SecretHash> {
-  const salt = randomSalt();
+  const salt = `v2:${randomSalt()}`;
   return { salt, hash: await hashSecret(secret, salt) };
+}
+
+type LoginResult = {
+  role?: AccessSession["kind"];
+  error?: string;
+  code?: string;
+  passwordSalt?: string;
+  leaderPinSalt?: string;
+};
+
+async function requestLogin(
+  payload: Record<string, string>,
+  password: string,
+  leaderPin = "",
+) {
+  async function send(body: Record<string, string>) {
+    const response = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const result = (await response.json().catch(() => ({
+      error: "登录服务暂时不可用，请稍后重试",
+    }))) as LoginResult;
+    return { response, result };
+  }
+
+  let attempt = await send(payload);
+  if (
+    attempt.response.status === 409 &&
+    attempt.result.code === "PASSWORD_UPGRADE_REQUIRED"
+  ) {
+    const upgradedPayload = { ...payload };
+    if (attempt.result.passwordSalt) {
+      upgradedPayload.passwordProof = await hashSecret(
+        password,
+        attempt.result.passwordSalt,
+      );
+    }
+    if (attempt.result.leaderPinSalt && leaderPin) {
+      upgradedPayload.leaderPinProof = await hashSecret(
+        leaderPin,
+        attempt.result.leaderPinSalt,
+      );
+    }
+    attempt = await send(upgradedPayload);
+  }
+  return attempt;
 }
 
 async function verifySecret(secret: string, saved?: SecretHash) {
@@ -702,20 +750,16 @@ export default function Dashboard() {
     setAuthBusy(true);
     setAuthMessage("");
     try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const { response, result } = await requestLogin(
+        {
           mode: "staff",
           personId: person.id,
           password,
           leaderPin,
-        }),
-      });
-      const result = (await response.json()) as {
-        role?: AccessSession["kind"];
-        error?: string;
-      };
+        },
+        password,
+        leaderPin,
+      );
       if (!response.ok) {
         setAuthMessage(result.error || "登录失败，请稍后重试");
         return;
@@ -738,12 +782,10 @@ export default function Dashboard() {
     setAuthBusy(true);
     setAuthMessage("");
     try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "admin", password }),
-      });
-      const result = (await response.json()) as { error?: string };
+      const { response, result } = await requestLogin(
+        { mode: "admin", password },
+        password,
+      );
       if (!response.ok) {
         setAuthMessage(result.error || "管理员登录失败");
         return;
