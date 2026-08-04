@@ -1,6 +1,6 @@
 {
   "name": "liangjian-team-output",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "private": true,
   "engines": {
     "node": ">=22.13.0"
@@ -10,7 +10,9 @@
     "build": "vinext build",
     "start": "vinext start",
     "test": "npm run build && node --test tests/rendered-html.test.mjs",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "prepare:cloudflare": "node scripts/prepare-cloudflare-deploy.mjs",
+    "deploy:cloudflare": "npm run build && npm run prepare:cloudflare && wrangler deploy --cwd dist/server --config wrangler.deploy.json"
   },
   "dependencies": {
     "next": "16.3.0-preview.8",
@@ -18,7 +20,7 @@
     "react-dom": "19.2.8"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "1.47.0",
+    "@cloudflare/vite-plugin": "1.50.0",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",
@@ -30,10 +32,11 @@
     "typescript": "5.9.3",
     "vinext": "0.2.1",
     "vite": "8.1.5",
-    "wrangler": "4.114.0"
+    "wrangler": "4.118.0"
   },
   "overrides": {
-    "postcss": "8.5.18"
+    "postcss": "8.5.25",
+    "undici": "7.29.0"
   },
   "type": "module"
 }
