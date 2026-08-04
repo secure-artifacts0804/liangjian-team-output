@@ -8,6 +8,7 @@ on:
 permissions:
   contents: write
   id-token: write
+  attestations: write
 
 jobs:
   release:
@@ -123,6 +124,18 @@ jobs:
           cosign sign-blob --yes `
             --bundle "liangjian-$env:GITHUB_REF_NAME-source.sigstore.json" `
             "liangjian-$env:GITHUB_REF_NAME-source.zip"
+
+      - name: Attest release artifacts for gh verification
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
+        with:
+          subject-path: |
+            LiangJian-${{ github.ref_name }}-windows-x64.zip
+            LiangJian-${{ github.ref_name }}-windows-x64.sigstore.json
+            liangjian-${{ github.ref_name }}-source.zip
+            liangjian-${{ github.ref_name }}-source.sigstore.json
+            SHA256SUMS
+            release/Web-SBOM.spdx.json
+            release/Desktop-SBOM.spdx.json
 
       - name: Publish immutable release assets
         env:
