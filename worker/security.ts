@@ -33,6 +33,8 @@ type Session = {
 
 const COOKIE_NAME = "liangjian_session";
 const SESSION_SECONDS = 12 * 60 * 60;
+const CURRENT_SALT_PREFIX = "v2:";
+const CURRENT_PBKDF2_ITERATIONS = 100_000;
 const DRIVE_FOLDER_PATTERN =
   /^https:\/\/drive\.google\.com\/(?:drive\/(?:u\/\d+\/)?folders\/|open\?id=)([-\w]{10,})/i;
 
@@ -170,7 +172,7 @@ async function deriveHash(secret: string, salt: string) {
         name: "PBKDF2",
         hash: "SHA-256",
         salt: new TextEncoder().encode(salt),
-        iterations: 120_000,
+        iterations: CURRENT_PBKDF2_ITERATIONS,
       },
       key,
       256,
@@ -195,11 +197,50 @@ function constantTimeEqual(left: Uint8Array, right: Uint8Array) {
 }
 
 async function verifyPassword(secret: string, saved: SecretHash) {
-  if (secret.length > 256) return false;
+  if (
+    secret.length > 256 ||
+    !saved.salt.startsWith(CURRENT_SALT_PREFIX)
+  ) {
+    return false;
+  }
   return constantTimeEqual(
     await deriveHash(secret, saved.salt),
     hexToBytes(saved.hash),
   );
+}
+
+function validProof(value: unknown, saved: SecretHash) {
+  return (
+    typeof value === "string" &&
+    /^[a-f0-9]{64}$/i.test(value) &&
+    constantTimeEqual(hexToBytes(value), hexToBytes(saved.hash))
+  );
+}
+
+function randomSalt() {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return `${CURRENT_SALT_PREFIX}${Array.from(bytes, (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("")}`;
+}
+
+async function upgradeSecret(
+  db: D1Database,
+  table: "auth_config" | "leader_pins",
+  key: string,
+  secret: string,
+) {
+  const salt = randomSalt();
+  const hash = Array.from(await deriveHash(secret, salt), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
+  const keyColumn = table === "auth_config" ? "role" : "person_id";
+  await db
+    .prepare(
+      `UPDATE ${table} SET salt = ?, hash = ?, updated_at = ? WHERE ${keyColumn} = ?`,
+    )
+    .bind(salt, hash, Date.now(), key)
+    .run();
 }
 
 async function getSavedSecret(
@@ -291,16 +332,59 @@ async function login(request: Request, env: SecurityEnv, db: D1Database) {
     "auth_config",
     mode === "admin" ? "admin" : "staff",
   );
-  if (!saved || !(await verifyPassword(password, saved))) {
+  if (!saved) {
     return json({ error: mode === "admin" ? "管理员密码不正确" : "共用密码不正确" }, 401);
+  }
+
+  const savedPin =
+    mode !== "admin" && leaderPin && personId
+      ? await getSavedSecret(db, "leader_pins", personId)
+      : null;
+  const passwordNeedsUpgrade = !saved.salt.startsWith(CURRENT_SALT_PREFIX);
+  const leaderPinNeedsUpgrade = Boolean(
+    savedPin && !savedPin.salt.startsWith(CURRENT_SALT_PREFIX),
+  );
+  if (
+    (passwordNeedsUpgrade && !body.passwordProof) ||
+    (leaderPinNeedsUpgrade && !body.leaderPinProof)
+  ) {
+    return json(
+      {
+        code: "PASSWORD_UPGRADE_REQUIRED",
+        passwordSalt: passwordNeedsUpgrade ? saved.salt : undefined,
+        leaderPinSalt: leaderPinNeedsUpgrade ? savedPin?.salt : undefined,
+      },
+      409,
+    );
+  }
+  const passwordValid = passwordNeedsUpgrade
+    ? validProof(body.passwordProof, saved)
+    : await verifyPassword(password, saved);
+  if (!passwordValid) {
+    return json({ error: mode === "admin" ? "管理员密码不正确" : "共用密码不正确" }, 401);
+  }
+  if (passwordNeedsUpgrade) {
+    await upgradeSecret(
+      db,
+      "auth_config",
+      mode === "admin" ? "admin" : "staff",
+      password,
+    );
   }
 
   let role: Session["role"] = mode === "admin" ? "admin" : "employee";
   if (mode !== "admin" && leaderPin) {
     if (!personId) return json({ error: "请选择自己的姓名" }, 400);
-    const savedPin = await getSavedSecret(db, "leader_pins", personId);
-    if (!savedPin || !(await verifyPassword(leaderPin, savedPin))) {
+    const leaderPinValid = savedPin
+      ? leaderPinNeedsUpgrade
+        ? validProof(body.leaderPinProof, savedPin)
+        : await verifyPassword(leaderPin, savedPin)
+      : false;
+    if (!leaderPinValid) {
       return json({ error: "组长 PIN 不正确" }, 401);
+    }
+    if (leaderPinNeedsUpgrade) {
+      await upgradeSecret(db, "leader_pins", personId, leaderPin);
     }
     role = "leader";
   }
